@@ -1,0 +1,334 @@
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+
+public class Dijkstra {
+	Heap heap = new Heap();
+	
+	/*public Dijkstra(){	
+		heap = new Heap();
+	}*/
+	
+	/*public int findPath(Graph graph, int start, int dest){
+		Node startNode = graph.getNode(start);
+		Node destNode = graph.getNode(dest);
+		return findPath(graph, startNode, destNode);
+	}*/
+		
+	public int findPath(Graph graph, int startIndex, int destIndex){
+		
+		Node start = graph.getNode(startIndex);
+		Node dest = graph.getNode(destIndex);
+		
+		Set<Node> done = new HashSet<Node>();
+		Set<Node> toDo = graph.getAllNode();
+		
+		done.add(start);
+
+	/*	for (Iterator<Node> i = toDo.iterator(); i.hasNext();) {
+		    Node element = i.next();
+		    if (element == s) {
+		        i.remove();
+		    }
+		}*/
+		
+		for(Node node:toDo){
+			
+			if(node == start){
+				node.setDist(0);
+				continue;
+			}
+			else 
+				node.setDist(100000);
+			heap.insert(node);
+		}
+
+		Node current = start;
+		while(current!=dest){
+			Map<Node, Integer> links = graph.getLinks(current);
+				
+			for(Node neighbor:Collections.unmodifiableSet(links.keySet())){
+				if(heap.contains(neighbor)){
+					heap.delete(neighbor);
+					
+					Integer length = links.get(neighbor);
+					int newLength = length+current.getDist();
+					if(newLength<neighbor.getDist())
+						neighbor.setDist(length+current.getDist());
+					
+					heap.insert(neighbor);
+				}
+			}
+			
+			current = heap.getMin();
+			done.add(current);
+			//**************
+			
+			heap.delete(current);
+		}
+		
+		return current.getDist();
+	} 
+	
+	public static void main(String[] args) throws NumberFormatException, IOException{
+		Dijkstra test = new Dijkstra();
+		Graph graph = new Graph();
+		
+		graph.buildGraph(new File("dijkstraData.txt"));
+		int result = 10000;
+		for(int i=0;i<100; i++){
+			int temp = test.findPath(graph, 1,5);
+			if(result>temp){
+				result = temp; 
+			}
+		}
+		System.out.println(result);
+		
+		
+	}
+	
+}
+
+class Graph{
+	Map<Node, HashMap<Node, Integer>> map;
+	Map<Integer, Node> indexMap;
+	
+	public Graph(){
+		map = new HashMap<Node, HashMap<Node, Integer>>();
+		indexMap = new HashMap<Integer, Node>();
+	}
+	
+	public Set<Node> getAllNode(){
+		return Collections.unmodifiableSet(map.keySet());
+	}
+	
+	public Map<Node, Integer> getLinks(Node node){
+		return map.get(node);
+	}
+	
+	void addNode(Node node, HashMap<Node, Integer> localMap){
+		map.put(node, localMap);
+	}
+	
+	void registerNode(Node node){
+		indexMap.put(node.index, node);
+	}
+	
+	Node getNode(int x){
+		Integer index = Integer.valueOf(x);
+		return indexMap.get(index); 
+	}	
+	
+	public void buildGraph(File filename) throws NumberFormatException, IOException{
+		
+		Set<Integer> pool = new HashSet<Integer>();
+		
+		BufferedReader bf = new BufferedReader(new FileReader(filename));
+		String line;
+		
+	
+		while((line = bf.readLine())!=null){
+			String[] chars = line.replaceAll(",", " ").split("\\s+");
+			
+			int[] currentLine = new int[chars.length];
+			int j = 0;
+			for(String integer: chars){
+				currentLine[j] = Integer.parseInt(integer);
+				j++;
+			}
+			
+			Node des = null;
+			Node src = null;
+			
+			int vertex = currentLine[0];
+			if(!pool.contains(Integer.valueOf(vertex))){
+				pool.add(Integer.valueOf(vertex));
+				des = new Node(vertex);
+				registerNode(des);
+			}else{
+				des = getNode(vertex);
+			}
+			
+			int odd = 1;
+			int even = 2;
+			HashMap<Node, Integer> localMap = new HashMap<Node, Integer>();
+			
+			while(even<chars.length){
+				int neighbor = currentLine[odd];
+				int length = currentLine[even];
+				
+				if(!pool.contains(Integer.valueOf(neighbor))){
+					pool.add(Integer.valueOf(neighbor));
+					src = new Node(neighbor);
+					registerNode(src);
+				}else{
+					src = getNode(neighbor);
+				}
+				
+				localMap.put(src, Integer.valueOf(length));
+				
+				odd += 2;
+				even += 2;
+			}
+			
+			addNode(des, localMap);
+		}
+		
+		bf.close();
+	}
+}
+
+/*class Link{
+	Node start;
+	Node end;
+	int length;
+}*/
+
+class Node{
+	int index;
+	private int soFarDist;
+	
+	public Node(int index){
+		this.index = index;
+		soFarDist = 0;
+	}
+	
+	public void setDist(int newDist){
+		soFarDist = newDist;
+	}
+	
+	public int getDist(){
+		return soFarDist;
+	}
+}
+
+class Heap{
+	
+	static List<Node> heap;
+	static int lastIndex;
+	
+	public Heap(){
+		heap = new ArrayList<Node>();
+		lastIndex = -1;
+	}
+	
+	public boolean delete(Node node){
+		if(heap.contains(node)){
+			int index = heap.indexOf(node);
+			int towatch = lastIndex;
+			swap(index, lastIndex);
+			heap.remove(lastIndex);
+			lastIndex--;
+			
+			int cIndex = lastIndex;
+			int pIndex = cIndex/2;
+			while(pIndex>=0){
+				if(heap.get(pIndex).getDist()>heap.get(cIndex).getDist()){
+					swap(cIndex, pIndex);
+					cIndex = pIndex;
+					pIndex = cIndex/2;
+				}else
+					break;
+			}
+			
+			return true;
+		}
+		return false;
+	}
+	
+	public void insert(Node node){
+		lastIndex++;
+		heap.add(lastIndex, node);
+		
+		int cIndex = lastIndex;
+		int pIndex = cIndex/2;
+		while(pIndex>=0){
+			if(heap.get(pIndex).getDist()>heap.get(cIndex).getDist()){
+				swap(cIndex, pIndex);
+				cIndex = pIndex;
+				pIndex = cIndex/2;
+			}else
+				break;
+		}
+		
+	}
+	
+	public Node getMin(){
+		Node temp = heap.get(0);
+		swap(0,lastIndex);
+		
+		int pIndex = 0;
+		int clIndex = 1;
+		int crIndex = 2;
+		
+		while(clIndex<=lastIndex){
+			if(clIndex==lastIndex){
+				if(heap.get(pIndex).getDist()>heap.get(clIndex).getDist()){
+					swap(clIndex, pIndex);
+					pIndex = clIndex;
+				}else
+					break;
+			}
+			
+			else{
+				int root = heap.get(pIndex).getDist();
+				int left = heap.get(clIndex).getDist();
+				int right = heap.get(crIndex).getDist();
+				
+				if(root>left&&root>right){
+					if(left>right){
+						swap(pIndex, crIndex);
+						pIndex = crIndex;
+					}else{
+						swap(pIndex, clIndex);
+						pIndex = clIndex;
+					}
+				}
+				
+				else if(root>left&&root<right){
+					swap(pIndex, clIndex);
+					pIndex = clIndex;
+					
+				}
+				
+				else{
+					swap(pIndex, crIndex);
+					pIndex = crIndex;
+				}
+			}
+			clIndex = pIndex*2;
+			crIndex = clIndex+1;
+		}
+		
+		return temp;
+	}
+	
+	private void swap(int child, int parent){
+		Node temp1 = heap.get(child);
+		Node temp2 = heap.get(parent);
+		heap.set(child, temp2);
+		heap.set(parent, temp1);
+	}
+	
+/*	private int getIndex(Node node){
+		if(contains(node)){
+			return heap.indexOf(node);
+		}
+		return -1;
+	}*/
+	
+	public boolean contains(Node node){
+		return heap.contains(node);
+	}
+}
